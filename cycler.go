@@ -11,8 +11,6 @@ type Cycler struct {
 }
 
 func (cycler *Cycler) cycle() {
-	cycler.Current = cycler.Charsets[cycler.Steps]
-
 	if cycler.Steps+1 < len(cycler.Charsets) {
 		cycler.Steps++
 	} else {
@@ -23,4 +21,6 @@ func (cycler *Cycler) cycle() {
 			cycler.LastFinish = true
 		}
 	}
+
+	cycler.Current = cycler.Charsets[cycler.Steps]
 }

@@ -128,7 +128,10 @@ func Process(parsed []Expression) {
 	for {
 		entry = ""
 		cyclerCount := 0
-		Cyclers[len(Cyclers)-1].cycle()
+
+		if Cyclers[0].LastFinish {
+			break
+		}
 
 		for _, expression := range parsed {
 			if !expression.IsBerexp {
@@ -143,9 +146,7 @@ func Process(parsed []Expression) {
 		FILE.WriteString(backslashEscape(entry) + "\n")
 		// fmt.Println(entry)
 
-		if Cyclers[0].LastFinish {
-			break
-		}
+		Cyclers[len(Cyclers)-1].cycle()
 	}
 
 	FILE.Close()
