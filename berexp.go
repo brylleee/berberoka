@@ -1,10 +1,36 @@
 package main
 
+import (
+	"strconv"
+)
+
 type Expression struct {
 	Data     string
 	IsBerexp bool
 }
 
+func backslashEscape(s string) string {
+	var result []rune
+	n := len(s)
+
+	for i := 0; i < n; i++ {
+		if s[i] == '\\' {
+			// If next character is also '\', keep both and skip next
+			if i+1 < n && s[i+1] == '\\' {
+				result = append(result, '\\', '\\')
+				i++ // Skip next '\\'
+			}
+			// Else, remove single '\'
+		} else {
+			result = append(result, rune(s[i]))
+		}
+	}
+
+	return string(result)
+}
+
+// Find all metacharacters from given string ang separate from static ones
+// RETURNS: an array of Expression struct, containing tokens of metacharacters and static string
 func Parse(bexpression string) []Expression {
 	bexpression_match_indexes := BEXPRESSION_REGEX.FindAllStringIndex(bexpression, -1)
 
@@ -36,6 +62,8 @@ func Parse(bexpression string) []Expression {
 	return parsed
 }
 
+// Process tokens by replacing them with proper characters or words from
+// specified wordlists and charsets. The result is directly written into a file
 func Process(parsed []Expression) {
 	var entry string
 
@@ -48,78 +76,55 @@ func Process(parsed []Expression) {
 			continue
 		}
 
-		// Capture groups
-		// 0 - Entire
-		// 1 - Metachar
-		// 2 - Or group expression
-		// 3 - Repeat value
-		// 4 - Limit value
 		berexpParts := BEXPRESSION_REGEX.FindStringSubmatch(expression.Data)
+		var charsets []string
 
-		switch berexpParts[1] {
-		case "d":
-			Cyclers = append(Cyclers, &Cycler{
-				Charsets:       DIGIT,
-				Current:        string(DIGIT[0]),
-				Steps:          0,
-				PreviousCycler: previousCycler,
-			})
-		case "c":
-			Cyclers = append(Cyclers, &Cycler{
-				Charsets:       CHARACTER_SMALL,
-				Current:        string(CHARACTER_SMALL[0]),
-				Steps:          0,
-				PreviousCycler: previousCycler,
-			})
-		case "C":
-			Cyclers = append(Cyclers, &Cycler{
-				Charsets:       CHARACTER_BIG,
-				Current:        string(CHARACTER_BIG[0]),
-				Steps:          0,
-				PreviousCycler: previousCycler,
-			})
-		case "Cc":
-			Cyclers = append(Cyclers, &Cycler{
-				Charsets:       CHARACTER_SMALL + CHARACTER_BIG,
-				Current:        string(CHARACTER_SMALL[0]),
-				Steps:          0,
-				PreviousCycler: previousCycler,
-			})
-		case "a":
-			Cyclers = append(Cyclers, &Cycler{
-				Charsets:       ALPHANUMBERIC_SMALL,
-				Current:        string(ALPHANUMBERIC_SMALL[0]),
-				Steps:          0,
-				PreviousCycler: previousCycler,
-			})
-		case "A":
-			Cyclers = append(Cyclers, &Cycler{
-				Charsets:       ALPHANUMBERIC_BIG,
-				Current:        string(ALPHANUMBERIC_BIG[0]),
-				Steps:          0,
-				PreviousCycler: previousCycler,
-			})
-		case "Aa":
-			Cyclers = append(Cyclers, &Cycler{
-				Charsets:       ALPHANUMBERIC_SMALL + ALPHANUMBERIC_BIG,
-				Current:        string(ALPHANUMBERIC_SMALL[0]),
-				Steps:          0,
-				PreviousCycler: previousCycler,
-			})
-		case "@":
-			Cyclers = append(Cyclers, &Cycler{
-				Charsets:       SYMBOL,
-				Current:        string(SYMBOL[0]),
-				Steps:          0,
-				PreviousCycler: previousCycler,
-			})
-		default:
-			// CUSTOM WORDLISTS
+		// Process WORDLISTS
+		if berexpParts[1][0] == 'w' {
+			index, _ := strconv.Atoi(berexpParts[1][1:])
+			for _, words := range WORDLISTS[index] {
+				charsets = append(charsets, string(words))
+			}
+		} else if berexpParts[1][0] == 's' { // Process CUSTOMCHARSETS
+			index, _ := strconv.Atoi(berexpParts[1][1:])
+			for _, chr := range CHARSETS[index] {
+				charsets = append(charsets, string(chr))
+			}
+		} else {
+			for _, charset := range berexpParts[1] { // Process REGULAR METACHARACTERS
+				switch charset {
+				case 'd':
+					for _, chr := range DIGIT {
+						charsets = append(charsets, string(chr))
+					}
+				case 'c':
+					for _, chr := range CHARACTER_SMALL {
+						charsets = append(charsets, string(chr))
+					}
+				case 'C':
+					for _, chr := range CHARACTER_BIG {
+						charsets = append(charsets, string(chr))
+					}
+				case '@':
+					for _, chr := range SYMBOL {
+						charsets = append(charsets, string(chr))
+					}
+				}
+			}
 		}
+
+		Cyclers = append(Cyclers, &Cycler{
+			Charsets:       charsets,
+			Current:        string(charsets[0]),
+			Steps:          0,
+			PreviousCycler: previousCycler,
+		})
 
 		previousCycler = Cyclers[len(Cyclers)-1]
 	}
 
+	// Cycle through every tokens, and increment them
+	// to exhaust all possible combinations
 	for {
 		entry = ""
 		cyclerCount := 0
@@ -135,7 +140,7 @@ func Process(parsed []Expression) {
 			cyclerCount++
 		}
 
-		FILE.WriteString(entry + "\n")
+		FILE.WriteString(backslashEscape(entry) + "\n")
 		// fmt.Println(entry)
 
 		if Cyclers[0].LastFinish {

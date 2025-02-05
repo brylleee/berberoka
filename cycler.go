@@ -1,7 +1,7 @@
 package main
 
 type Cycler struct {
-	Charsets string
+	Charsets []string
 	Current  string
 	Steps    int
 
@@ -11,6 +11,8 @@ type Cycler struct {
 }
 
 func (cycler *Cycler) cycle() {
+	cycler.Current = cycler.Charsets[cycler.Steps]
+
 	if cycler.Steps+1 < len(cycler.Charsets) {
 		cycler.Steps++
 	} else {
@@ -21,6 +23,4 @@ func (cycler *Cycler) cycle() {
 			cycler.LastFinish = true
 		}
 	}
-
-	cycler.Current = string(cycler.Charsets[cycler.Steps])
 }
